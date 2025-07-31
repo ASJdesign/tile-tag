@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Grid3x3, LayoutGrid } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { LinkCard } from '@/components/LinkCard';
 import { AddLinkModal } from '@/components/AddLinkModal';
 import { SearchBar } from '@/components/SearchBar';
@@ -246,6 +247,7 @@ const Index = () => {
                 LinkCloud
               </h1>
               <div className="flex items-center gap-2">
+                <ThemeToggle />
                 <Button
                   variant="outline"
                   size="sm"

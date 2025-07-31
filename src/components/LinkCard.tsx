@@ -24,9 +24,10 @@ interface LinkCardProps {
   onDelete: (id: string) => void;
   onOpen: (link: LinkItem) => void;
   onResize: (id: string, size: '1x1' | '1x2' | '2x2') => void;
+  onColorChange: (id: string, color: string) => void;
 }
 
-export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardProps) {
+export function LinkCard({ link, onEdit, onDelete, onOpen, onResize, onColorChange }: LinkCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [sampledColor, setSampledColor] = useState<string | null>(null);
@@ -129,6 +130,14 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
     return { h: h * 360, s: s * 100, l: l * 100 };
   };
 
+  // Generate random colors
+  const getRandomColor = () => {
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = Math.floor(Math.random() * 40) + 40; // 40-80%
+    const lightness = Math.floor(Math.random() * 20) + 85; // 85-95%
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  };
+
   // Generate a color-based background from domain (fallback)
   const getThemeColor = (domain: string) => {
     const colors = [
@@ -144,14 +153,25 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
     return colors[hash % colors.length];
   };
 
-  // Sample favicon color on mount
-  useEffect(() => {
-    if (favicon && !sampledColor) {
-      sampleFaviconColor(favicon).then(setSampledColor);
-    }
-  }, [favicon, sampledColor]);
+  const handleColorChange = () => {
+    const newColor = getRandomColor();
+    onColorChange(link.id, newColor);
+  };
 
-  const themeColor = link.backgroundColor || sampledColor || getThemeColor(domain);
+  // Sample favicon color on mount and set random color if none exists
+  useEffect(() => {
+    if (!link.backgroundColor) {
+      if (favicon && !sampledColor) {
+        sampleFaviconColor(favicon).then(setSampledColor);
+      } else if (!favicon) {
+        // Set a random color for links without favicons
+        const randomColor = getRandomColor();
+        onColorChange(link.id, randomColor);
+      }
+    }
+  }, [favicon, sampledColor, link.backgroundColor, link.id, onColorChange]);
+
+  const themeColor = link.backgroundColor || sampledColor || getRandomColor();
 
   const sizeClasses = {
     '1x1': 'col-span-1 row-span-1',
@@ -276,6 +296,18 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
             {domain}
           </span>
         </div>
+        
+        {/* Color Change Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleColorChange();
+          }}
+          className="absolute top-2 right-2 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm border border-border/30 hover:bg-background transition-colors opacity-0 group-hover:opacity-100"
+          title="Change background color"
+        >
+          <div className="w-3 h-3 rounded-full mx-auto" style={{ backgroundColor: themeColor }} />
+        </button>
       </div>
 
       {/* Content */}

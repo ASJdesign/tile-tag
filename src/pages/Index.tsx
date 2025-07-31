@@ -17,6 +17,7 @@ interface LinkItem {
   clickCount: number;
   size: '1x1' | '1x2' | '2x2';
   createdAt: Date;
+  backgroundColor?: string;
 }
 
 // Sample data
@@ -209,6 +210,23 @@ const Index = () => {
     }
   };
 
+  const handleColorChange = async (id: string, color: string) => {
+    try {
+      setLinks(prevLinks =>
+        prevLinks.map(link =>
+          link.id === id ? { ...link, backgroundColor: color } : link
+        )
+      );
+      await storageUtils.updateLink(id, { backgroundColor: color });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to change background color. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev =>
       prev.includes(tag)
@@ -296,14 +314,15 @@ const Index = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 auto-rows-[200px]">
             {filteredLinks.map((link) => (
-              <LinkCard
-                key={link.id}
-                link={link}
-                onEdit={handleEditLink}
-                onDelete={handleDeleteLink}
-                onOpen={handleOpenLink}
-                onResize={handleResizeLink}
-              />
+               <LinkCard
+                 key={link.id}
+                 link={link}
+                 onEdit={handleEditLink}
+                 onDelete={handleDeleteLink}
+                 onOpen={handleOpenLink}
+                 onResize={handleResizeLink}
+                 onColorChange={handleColorChange}
+               />
             ))}
           </div>
         )}

@@ -8,6 +8,7 @@ interface LinkItem {
   clickCount: number;
   size: '1x1' | '1x2' | '2x2';
   createdAt: Date;
+  backgroundColor?: string;
 }
 
 const STORAGE_KEY = 'linkcloud_links';

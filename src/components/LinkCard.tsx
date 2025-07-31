@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ interface LinkCardProps {
 export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [sampledColor, setSampledColor] = useState<string | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; size: string } | null>(null);
 
   // Extract domain and favicon from URL
@@ -45,7 +46,90 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
 
   const { domain, favicon } = getDomainInfo(link.url);
 
-  // Generate a color-based background from domain
+  // Sample favicon colors and create contrasting background
+  const sampleFaviconColor = async (faviconUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(getThemeColor(domain));
+          return;
+        }
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        try {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Sample colors and find the most prominent non-white color
+          const colorMap = new Map<string, number>();
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+            
+            // Skip transparent or very light pixels
+            if (a < 128 || (r > 240 && g > 240 && b > 240)) continue;
+            
+            const color = `${r},${g},${b}`;
+            colorMap.set(color, (colorMap.get(color) || 0) + 1);
+          }
+          
+          if (colorMap.size > 0) {
+            // Get the most prominent color
+            const dominantColor = Array.from(colorMap.entries())
+              .sort((a, b) => b[1] - a[1])[0][0];
+            
+            const [r, g, b] = dominantColor.split(',').map(Number);
+            
+            // Convert to HSL and create a complementary background
+            const hsl = rgbToHsl(r, g, b);
+            const complementaryHue = (hsl.h + 180) % 360;
+            
+            // Create a subtle background with complementary hue
+            resolve(`hsl(${complementaryHue}, 80%, 95%)`);
+          } else {
+            resolve(getThemeColor(domain));
+          }
+        } catch {
+          resolve(getThemeColor(domain));
+        }
+      };
+      
+      img.onerror = () => resolve(getThemeColor(domain));
+      img.src = faviconUrl;
+    });
+  };
+
+  // Convert RGB to HSL
+  const rgbToHsl = (r: number, g: number, b: number) => {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  };
+
+  // Generate a color-based background from domain (fallback)
   const getThemeColor = (domain: string) => {
     const colors = [
       'hsl(var(--thumbnail-bg-blue))',
@@ -60,7 +144,14 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
     return colors[hash % colors.length];
   };
 
-  const themeColor = link.backgroundColor || getThemeColor(domain);
+  // Sample favicon color on mount
+  useEffect(() => {
+    if (favicon && !sampledColor) {
+      sampleFaviconColor(favicon).then(setSampledColor);
+    }
+  }, [favicon, sampledColor]);
+
+  const themeColor = link.backgroundColor || sampledColor || getThemeColor(domain);
 
   const sizeClasses = {
     '1x1': 'col-span-1 row-span-1',

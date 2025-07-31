@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Tag, MoreHorizontal, Move } from 'lucide-react';
+import { ExternalLink, Tag, MoreHorizontal, Move, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LinkItem {
@@ -29,6 +29,20 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; size: string } | null>(null);
+
+  // Extract domain and favicon from URL
+  const getDomainInfo = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname.replace('www.', '');
+      const favicon = `https://${urlObj.hostname}/favicon.ico`;
+      return { domain, favicon };
+    } catch {
+      return { domain: 'Invalid URL', favicon: null };
+    }
+  };
+
+  const { domain, favicon } = getDomainInfo(link.url);
 
   const sizeClasses = {
     '1x1': 'col-span-1 row-span-1',
@@ -104,7 +118,7 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
       onClick={handleClick}
     >
       {/* Thumbnail */}
-      <div className="aspect-video w-full bg-gradient-subtle rounded-t-lg overflow-hidden">
+      <div className="aspect-video w-full bg-gradient-subtle rounded-t-lg overflow-hidden relative">
         {link.thumbnail ? (
           <img
             src={link.thumbnail}
@@ -116,6 +130,25 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
             <ExternalLink className="w-8 h-8 text-primary-foreground" />
           </div>
         )}
+        
+        {/* Domain Badge */}
+        <div className="absolute top-2 left-2 flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-md px-2 py-1 text-xs">
+          {favicon ? (
+            <img 
+              src={favicon} 
+              alt={`${domain} favicon`}
+              className="w-3 h-3 rounded-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <Globe className={cn("w-3 h-3 text-muted-foreground", favicon && "hidden")} />
+          <span className="text-muted-foreground font-medium truncate max-w-[80px]">
+            {domain}
+          </span>
+        </div>
       </div>
 
       {/* Content */}
@@ -151,10 +184,15 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
           </div>
         )}
 
-        {/* Stats */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{link.clickCount} clicks</span>
-          <span>{new Date(link.createdAt).toLocaleDateString()}</span>
+        {/* URL Preview & Stats */}
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground truncate bg-muted/30 rounded px-2 py-1">
+            {link.url.length > 40 ? `${link.url.substring(0, 40)}...` : link.url}
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{link.clickCount} clicks</span>
+            <span>{new Date(link.createdAt).toLocaleDateString()}</span>
+          </div>
         </div>
       </div>
 

@@ -15,6 +15,7 @@ interface LinkItem {
   clickCount: number;
   size: '1x1' | '1x2' | '2x2';
   createdAt: Date;
+  backgroundColor?: string;
 }
 
 interface LinkCardProps {
@@ -43,6 +44,23 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
   };
 
   const { domain, favicon } = getDomainInfo(link.url);
+
+  // Generate a color-based background from domain
+  const getThemeColor = (domain: string) => {
+    const colors = [
+      'hsl(var(--thumbnail-bg-blue))',
+      'hsl(var(--thumbnail-bg-green))',
+      'hsl(var(--thumbnail-bg-purple))',
+      'hsl(var(--thumbnail-bg-orange))',
+      'hsl(var(--thumbnail-bg-red))',
+      'hsl(var(--thumbnail-bg-teal))'
+    ];
+    
+    const hash = domain.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
+  const themeColor = link.backgroundColor || getThemeColor(domain);
 
   const sizeClasses = {
     '1x1': 'col-span-1 row-span-1',
@@ -118,16 +136,34 @@ export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardP
       onClick={handleClick}
     >
       {/* Thumbnail */}
-      <div className="aspect-video w-full bg-gradient-subtle rounded-t-lg overflow-hidden relative">
+      <div 
+        className="aspect-video w-full rounded-t-lg overflow-hidden relative"
+        style={{ backgroundColor: themeColor }}
+      >
         {link.thumbnail ? (
           <img
             src={link.thumbnail}
             alt={link.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
           />
+        ) : favicon ? (
+          <div className="w-full h-full flex items-center justify-center relative">
+            <img
+              src={favicon}
+              alt={`${domain} favicon`}
+              className="w-16 h-16 object-contain opacity-90 transition-transform duration-300 group-hover:scale-110"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <div className="hidden w-full h-full flex items-center justify-center">
+              <ExternalLink className="w-8 h-8 text-foreground/60" />
+            </div>
+          </div>
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-primary">
-            <ExternalLink className="w-8 h-8 text-primary-foreground" />
+          <div className="w-full h-full flex items-center justify-center">
+            <ExternalLink className="w-8 h-8 text-foreground/60" />
           </div>
         )}
         

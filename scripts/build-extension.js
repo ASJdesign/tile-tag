@@ -20,13 +20,27 @@ async function buildExtension() {
   // Build the project
   execSync('npm run build', { stdio: 'inherit' });
   
+  // Ensure index.html is in the root of dist (not in a subfolder)
+  const indexSource = path.join(distDir, 'main.html');
+  const indexTarget = path.join(distDir, 'index.html');
+  
+  if (fs.existsSync(indexSource)) {
+    fs.renameSync(indexSource, indexTarget);
+  }
+  
   // Validate that all required files exist
   const requiredFiles = ['index.html', 'manifest.json', 'favicon.ico'];
   for (const file of requiredFiles) {
     const filePath = path.join(distDir, file);
     if (!fs.existsSync(filePath)) {
+      console.error(`❌ Required file missing: ${filePath}`);
+      console.log('📁 Files in dist directory:');
+      if (fs.existsSync(distDir)) {
+        fs.readdirSync(distDir).forEach(f => console.log(`  - ${f}`));
+      }
       throw new Error(`Required file missing: ${filePath}`);
     }
+    console.log(`✅ Found: ${filePath}`);
   }
   
   console.log('✅ Build complete!');

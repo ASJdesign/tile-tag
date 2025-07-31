@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Tag, MoreHorizontal } from 'lucide-react';
+import { ExternalLink, Tag, MoreHorizontal, Move } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LinkItem {
@@ -22,10 +22,13 @@ interface LinkCardProps {
   onEdit: (link: LinkItem) => void;
   onDelete: (id: string) => void;
   onOpen: (link: LinkItem) => void;
+  onResize: (id: string, size: '1x1' | '1x2' | '2x2') => void;
 }
 
-export function LinkCard({ link, onEdit, onDelete, onOpen }: LinkCardProps) {
+export function LinkCard({ link, onEdit, onDelete, onOpen, onResize }: LinkCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; size: string } | null>(null);
 
   const sizeClasses = {
     '1x1': 'col-span-1 row-span-1',
@@ -34,7 +37,58 @@ export function LinkCard({ link, onEdit, onDelete, onOpen }: LinkCardProps) {
   };
 
   const handleClick = () => {
-    onOpen(link);
+    if (!isResizing) {
+      onOpen(link);
+    }
+  };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      size: link.size
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current) return;
+      
+      const deltaX = e.clientX - dragStartRef.current.x;
+      const deltaY = e.clientY - dragStartRef.current.y;
+      const threshold = 50;
+
+      let newSize: '1x1' | '1x2' | '2x2' = dragStartRef.current.size as '1x1' | '1x2' | '2x2';
+
+      if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
+        if (deltaX > threshold && deltaY > threshold) {
+          newSize = '2x2';
+        } else if (deltaY > threshold) {
+          newSize = '1x2';
+        } else if (deltaX > threshold) {
+          newSize = '2x2';
+        } else {
+          newSize = '1x1';
+        }
+
+        if (newSize !== link.size) {
+          onResize(link.id, newSize);
+          dragStartRef.current.size = newSize;
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      dragStartRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
 
   return (
@@ -129,6 +183,18 @@ export function LinkCard({ link, onEdit, onDelete, onOpen }: LinkCardProps) {
           >
             <MoreHorizontal className="w-3 h-3" />
           </Button>
+        </div>
+      )}
+
+      {/* Resize Handle */}
+      {isHovered && (
+        <div 
+          className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+          onMouseDown={handleResizeStart}
+        >
+          <div className="w-full h-full bg-primary/20 rounded-sm flex items-center justify-center hover:bg-primary/40 transition-colors">
+            <Move className="w-2.5 h-2.5 text-primary" />
+          </div>
         </div>
       )}
     </Card>

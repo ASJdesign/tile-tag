@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Grid3x3, LayoutGrid } from 'lucide-react';
 import { LinkCard } from '@/components/LinkCard';
 import { AddLinkModal } from '@/components/AddLinkModal';
 import { SearchBar } from '@/components/SearchBar';
 import { useToast } from '@/hooks/use-toast';
+import { storageUtils } from '@/utils/storage';
 
 interface LinkItem {
   id: string;
@@ -63,12 +64,36 @@ const sampleLinks: LinkItem[] = [
 ];
 
 const Index = () => {
-  const [links, setLinks] = useState<LinkItem[]>(sampleLinks);
+  const [links, setLinks] = useState<LinkItem[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Load links from storage on mount
+  useEffect(() => {
+    const loadLinks = async () => {
+      try {
+        const storedLinks = await storageUtils.getLinks();
+        if (storedLinks.length === 0) {
+          // Initialize with sample data if no links exist
+          await storageUtils.saveLinks(sampleLinks);
+          setLinks(sampleLinks);
+        } else {
+          setLinks(storedLinks);
+        }
+      } catch (error) {
+        console.error('Error loading links:', error);
+        setLinks(sampleLinks);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadLinks();
+  }, []);
 
   // Get all available tags
   const availableTags = useMemo(() => {
@@ -94,25 +119,27 @@ const Index = () => {
     });
   }, [links, searchQuery, selectedTags]);
 
-  const handleAddLink = (newLinkData: {
+  const handleAddLink = async (newLinkData: {
     url: string;
     title: string;
     description?: string;
     tags: string[];
     size: '1x1' | '1x2' | '2x2';
   }) => {
-    const newLink: LinkItem = {
-      id: Date.now().toString(),
-      ...newLinkData,
-      clickCount: 0,
-      createdAt: new Date(),
-    };
-    
-    setLinks([newLink, ...links]);
-    toast({
-      title: 'Link added!',
-      description: `${newLink.title} has been added to your collection.`,
-    });
+    try {
+      const newLink = await storageUtils.addLink(newLinkData);
+      setLinks(prev => [newLink, ...prev]);
+      toast({
+        title: 'Link added!',
+        description: `${newLink.title} has been added to your collection.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add link. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditLink = (link: LinkItem) => {
@@ -123,31 +150,63 @@ const Index = () => {
     });
   };
 
-  const handleDeleteLink = (id: string) => {
-    setLinks(links.filter(link => link.id !== id));
-    toast({
-      title: 'Link removed',
-      description: 'The link has been removed from your collection.',
-    });
+  const handleDeleteLink = async (id: string) => {
+    try {
+      await storageUtils.deleteLink(id);
+      setLinks(prev => prev.filter(link => link.id !== id));
+      toast({
+        title: 'Link removed',
+        description: 'The link has been removed from your collection.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove link. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleOpenLink = (link: LinkItem) => {
-    // Increment click count
-    setLinks(prevLinks =>
-      prevLinks.map(l =>
-        l.id === link.id
-          ? { ...l, clickCount: l.clickCount + 1 }
-          : l
-      )
-    );
-    
-    // Open link in new tab
-    window.open(link.url, '_blank');
-    
-    toast({
-      title: 'Link opened',
-      description: `Opened ${link.title}`,
-    });
+  const handleOpenLink = async (link: LinkItem) => {
+    try {
+      // Increment click count
+      await storageUtils.updateLink(link.id, { clickCount: link.clickCount + 1 });
+      setLinks(prevLinks =>
+        prevLinks.map(l =>
+          l.id === link.id
+            ? { ...l, clickCount: l.clickCount + 1 }
+            : l
+        )
+      );
+      
+      // Open link in new tab
+      window.open(link.url, '_blank');
+      
+      toast({
+        title: 'Link opened',
+        description: `Opened ${link.title}`,
+      });
+    } catch (error) {
+      // Still open the link even if count update fails
+      window.open(link.url, '_blank');
+    }
+  };
+
+  const handleResizeLink = async (id: string, size: '1x1' | '1x2' | '2x2') => {
+    try {
+      await storageUtils.updateLink(id, { size });
+      setLinks(prev =>
+        prev.map(link =>
+          link.id === id ? { ...link, size } : link
+        )
+      );
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to resize tile. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleTagToggle = (tag: string) => {
@@ -203,7 +262,12 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-6">
-        {filteredLinks.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <div className="w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-muted-foreground mt-2">Loading your links...</p>
+          </div>
+        ) : filteredLinks.length === 0 ? (
           <div className="text-center py-16">
             <div className="max-w-md mx-auto space-y-4">
               <div className="w-24 h-24 mx-auto bg-gradient-primary rounded-full flex items-center justify-center">
@@ -238,6 +302,7 @@ const Index = () => {
                 onEdit={handleEditLink}
                 onDelete={handleDeleteLink}
                 onOpen={handleOpenLink}
+                onResize={handleResizeLink}
               />
             ))}
           </div>

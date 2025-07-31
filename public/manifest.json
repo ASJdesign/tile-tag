@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "LinkCloud",
+  "version": "1.0.0",
+  "description": "Visual bookmark manager with tags and resizable tiles",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "LinkCloud"
+  },
+  "icons": {
+    "16": "favicon.ico",
+    "48": "favicon.ico",
+    "128": "favicon.ico"
+  }
+}

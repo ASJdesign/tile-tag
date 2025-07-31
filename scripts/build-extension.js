@@ -20,8 +20,14 @@ async function buildExtension() {
   // Build the project
   execSync('npm run build', { stdio: 'inherit' });
   
-  // Copy manifest to dist
-  fs.copyFileSync('public/manifest.json', `${distDir}/manifest.json`);
+  // Validate that all required files exist
+  const requiredFiles = ['index.html', 'manifest.json', 'favicon.ico'];
+  for (const file of requiredFiles) {
+    const filePath = path.join(distDir, file);
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`Required file missing: ${filePath}`);
+    }
+  }
   
   console.log('✅ Build complete!');
   
